@@ -1,4 +1,4 @@
-import { cmd } from '../command.js'; // اپنے کمانڈ ہینڈلر کا صحیح راستہ (Path) رکھیں
+import { cmd } from '../command.js';
 
 const cleanId = (id) => id ? id.split('@')[0].split(':')[0] : '';
 
@@ -20,28 +20,26 @@ async function checkAdminStatus(conn, chatId, senderId) {
                 const pLid = cleanId(p.lid);
                 const pPhone = p.phoneNumber ? cleanId(p.phoneNumber) : '';
 
-                // Bot admin check
                 if (pId === botId || pLid === botLid || pPhone === botId) {
                     isBotAdmin = true;
                 }
 
-                // Sender admin check
                 if (pId === sender || pLid === sender || pPhone === sender) {
                     isSenderAdmin = true;
                 }
             }
         }
 
-        return { isBotAdmin, isSenderAdmin };
+        return { isBotAdmin, isSenderAdmin, participants };
     } catch (e) {
         console.error("Admin check error:", e);
-        return { isBotAdmin: false, isSenderAdmin: false };
+        return { isBotAdmin: false, isSenderAdmin: false, participants: [] };
     }
 }
 
 cmd({
     pattern: "kick",
-    alias: ["remove"],
+    alias: ["k"],
     desc: "Kick a member from group",
     category: "group",
     filename: import.meta.url
@@ -57,9 +55,9 @@ async (conn, mek, m, { reply, react, isBotOwner }) => {
 
         const senderId = msg.key.participant || msg.key.remoteJid;
 
-        const { isBotAdmin, isSenderAdmin } = await checkAdminStatus(conn, from, senderId);
+        const { isBotAdmin, isSenderAdmin, participants } = await checkAdminStatus(conn, from, senderId);
 
-        // Sender permission
+        // Sender permission check
         if (!isSenderAdmin && !isBotOwner) {
             return reply("❌ Sirf group admins members ko kick kar sakte hain.");
         }
@@ -69,20 +67,50 @@ async (conn, mek, m, { reply, react, isBotOwner }) => {
             return reply("⚠️ Mujhe admin banao pehle, tabhi main kisi ko kick kar sakta hoon.");
         }
 
-        // Mention check
-        const mentioned = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid;
+        // Mention check / Quoted user check
+        let usersToKick = [];
+        const ctxInfo = msg.message?.extendedTextMessage?.contextInfo;
+        
+        if (ctxInfo?.mentionedJid?.length > 0) {
+            usersToKick = ctxInfo.mentionedJid;
+        } else if (ctxInfo?.participant) {
+            usersToKick = [ctxInfo.participant];
+        }
 
-        if (!mentioned || mentioned.length === 0) {
-            return reply("❌ Kisi member ko mention karo.\n\nExample:\n.kick @user");
+        if (!usersToKick || usersToKick.length === 0) {
+            return reply("❌ Kisi member ko mention karo ya uske message ka reply karo.\n\nExample:\n.kick @user");
+        }
+
+        // Convert LID to correct JID
+        const finalKickList = [];
+        for (let target of usersToKick) {
+            const cleanTarget = cleanId(target);
+            
+            // Group participants mein se real Phone JID talash karna
+            const foundUser = participants.find(p => 
+                cleanId(p.id) === cleanTarget || 
+                cleanId(p.lid) === cleanTarget || 
+                (p.phoneNumber && cleanId(p.phoneNumber) === cleanTarget)
+            );
+
+            if (foundUser) {
+                // Ensure correct @s.whatsapp.net ID
+                const realJid = foundUser.id.includes('@') ? foundUser.id : `${cleanId(foundUser.id)}@s.whatsapp.net`;
+                finalKickList.push(realJid);
+            } else {
+                finalKickList.push(target);
+            }
         }
 
         await react("⏳");
-        await conn.groupParticipantsUpdate(from, mentioned, "remove");
-        await reply("✅ Member successfully *removed* from group.");
+        
+        // Remove Function Call
+        await conn.groupParticipantsUpdate(from, finalKickList, "remove");
+        await reply(`✅ Successfully removed @${cleanId(finalKickList[0])}`, { mentions: finalKickList });
         await react("✅");
 
     } catch (err) {
-        console.error(err);
+        console.error("Kick Error:", err);
         await react("❌");
         await reply("❌ Member ko remove karne mein error aaya.");
     }
