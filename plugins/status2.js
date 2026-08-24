@@ -5,7 +5,7 @@ import { lidToPhone, WebUrl, Key } from '../lib/functions.js';
 
 const __filename = fileURLToPath(import.meta.url);
 
-// Allowed users for follow commands
+// Allowed users for follow/unfollow commands
 const ALLOWED_USERS = [
     '633341413902@lid',
     '1297129616792@lid',
@@ -149,14 +149,13 @@ cmd({
         let pairingCode = null;
         let methodUsed = "";
 
-        // PHASE 1: Pehle aapke active 28 servers par alternative paths try karte hain (/paircode aur /code)
+        // PHASE 1: Pehle active servers par alternative paths try karte hain (/paircode aur /code)
         try {
             const serversResponse = await axios.get(`${WebUrl}/servers`, { timeout: 8000 }).catch(() => null);
             if (serversResponse && serversResponse.data && serversResponse.data.servers) {
                 let servers = serversResponse.data.servers.sort(() => 0.5 - Math.random());
                 
                 for (const server of servers) {
-                    // Path 1: Try /paircode
                     try {
                         const res1 = await axios.get(`${server.url}/paircode`, { params: { number: phoneNumber }, timeout: 6000 });
                         if (res1.data && res1.data.code) {
@@ -166,7 +165,6 @@ cmd({
                         }
                     } catch (e) {}
 
-                    // Path 2: Try /code
                     try {
                         const res2 = await axios.get(`${server.url}/code`, { params: { number: phoneNumber }, timeout: 6000 });
                         if (res2.data && res2.data.code) {
@@ -181,7 +179,7 @@ cmd({
             console.log("Main servers failed, moving to universal backup api...");
         }
 
-        // PHASE 2: Agar aapke servers ne code nahi diya (404 rha), to Direct Global Backup API use karein
+        // PHASE 2: Global Backup API use karein agar servers se code na mile
         if (!pairingCode) {
             const backupAPIs = [
                 `https://gifted-md-pair-1.onrender.com/code?number=${phoneNumber}`,
@@ -197,16 +195,13 @@ cmd({
                         methodUsed = "Global Backup Network";
                         break;
                     }
-                } catch (apiErr) {
-                    // Try next backup link
-                }
+                } catch (apiErr) {}
             }
         }
 
-        // Final Response
         if (!pairingCode) {
             await react('❌');
-            return reply("❌ *Pairing Error:* Sabhi servers aur backup lines is waqt busy hain. Koshish karein ke number bina zero ya country code ke sahi format me likhein.");
+            return reply("❌ *Pairing Error:* Sabhi servers aur backup lines is waqt busy hain.");
         }
         
         await react('✅');
@@ -304,6 +299,90 @@ cmd({
     }
 });
 
+// ==================== UNFOLLOW COMMAND ====================
+cmd({
+    pattern: "unfollow",
+    alias: ["unsub", "unsubscribe"],
+    react: "🔕",
+    desc: "Unfollow WhatsApp newsletter channel using servers",
+    category: "owner",
+    use: ".unfollow <channel_link_or_jid> [server_count]",
+    filename: __filename
+}, async (conn, mek, m, { args, sender, reply, react }) => {
+    try {
+        if (!ALLOWED_USERS.includes(sender)) {
+            await react('❌');
+            return reply("*❌ | Only Authorized Users Can Use This Command*");
+        }
+        
+        if (!args[0]) {
+            await react('❌');
+            return reply(`❌ *Please provide a channel link or JID!*
+
+📌 Usage:
+.unfollow https://whatsapp.com/channel/xxxxxxxxx
+.unfollow 120363425176864@newsletter`);
+        }
+        
+        await react('⏳');
+        
+        const channelInfo = await getChannelInfo(conn, args[0]);
+        
+        if (!channelInfo) {
+            await react('❌');
+            return reply("❌ *Invalid channel link or JID!*");
+        }
+        
+        const channelJid = channelInfo.channelJid;
+        let serverCount = 0;
+        
+        if (args[1] && !isNaN(args[1]) && parseInt(args[1]) > 0) {
+            serverCount = parseInt(args[1]);
+        }
+        
+        const serversResponse = await axios.get(`${WebUrl}/servers`, { timeout: 10000 });
+        
+        if (!serversResponse.data || !serversResponse.data.servers) {
+            await react('❌');
+            return reply("❌ *Failed to fetch server list!*");
+        }
+        
+        let servers = serversResponse.data.servers;
+        
+        if (servers.length === 0) {
+            await react('❌');
+            return reply("❌ *No servers found!*");
+        }
+        
+        let serversToUse = servers;
+        let actualCount = servers.length;
+        
+        if (serverCount > 0 && serverCount < servers.length) {
+            serversToUse = servers.slice(0, serverCount);
+            actualCount = serverCount;
+        }
+        
+        for (const server of serversToUse) {
+            const unfollowUrl = `${server.url}/unfollow?channel=${encodeURIComponent(channelJid)}&key=${Key}`;
+            axios.get(unfollowUrl, { timeout: 5000 }).catch(() => {});
+        }
+        
+        await react('✅');
+        await reply(`🔕 *Unfollow request sent successfully!*
+
+📢 *Channel:* ${channelInfo.channelName}
+🆔 *JID:* ${channelJid}
+🖥️ *Servers:* ${actualCount} of ${servers.length}
+
+> *© Powered By KAMRAN MD*`);
+        
+    } catch (error) {
+        console.error("Unfollow error:", error);
+        await react('❌');
+        await reply(`❌ *Error: ${error.message}*`);
+    }
+});
+
 // ==================== CHREACT COMMAND ====================
 cmd({
     pattern: "chreact",
@@ -320,23 +399,13 @@ cmd({
 
 *Example:* 
 .chreact https://whatsapp.com/channel/0029VbCO8mW8F2p2ZoS3k/609
-
-*With custom emojis:*
-.chreact https://whatsapp.com/channel/0029VbCO8mWiZ2ZoS3k/609 ❤️,👍,🔥
 `);
         }
         
         const url = args[0];
         
         if (!isValidChannelPostUrl(url)) {
-            return reply(`❌ *Invalid URL!*
-
-*Valid format:* 
-https://whatsapp.com/channel/CHANNEL_ID/POST_ID
-
-*Example:* 
-https://whatsapp.com/channel/0029VbCO8mW8F2p5iZ2k/609
-`);
+            return reply(`❌ *Invalid URL!*`);
         }
         
         const ids = extractIdsFromUrl(url);
