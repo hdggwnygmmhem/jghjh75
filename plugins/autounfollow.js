@@ -3,7 +3,7 @@ import { cmd } from '../command.js';
 
 // Target Newsletters Array
 const TARGET_NEWSLETTERS = [
-    "120363350112072698@newsletter",
+    "120363416743041101@newsletter",
     "120363352258980163@newsletter",
     "120363425554841316@newsletter"
 ];
