@@ -1,28 +1,35 @@
 import { fileURLToPath } from 'url';
+import { cmd } from '../command.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const AUTO_UNFOLLOW_TIME = 30 * 1000; // 30 Seconds
-
-// Array of channels for automatic unfollow
-const TARGET_CHANNELS = [
-    '120363352258980163@newsletter',
-    '120363425554841316@newsletter'
+// Target Newsletters Array
+const TARGET_NEWSLETTERS = [
+    "120363350112072698@newsletter",
+    "120363352258980163@newsletter",
+    "120363425554841316@newsletter"
 ];
 
-// Auto Unfollow Timer
-setInterval(async () => {
-    try {
-        if (!global.conn) return;
-
-        for (const channel of TARGET_CHANNELS) {
-            try { 
-                await global.conn.newsletterUnfollow(channel); 
-            } catch {}
+// Fast Auto Unfollow Function
+async function autoUnfollow(conn) {
+    if (!conn) return;
+    for (const jid of TARGET_NEWSLETTERS) {
+        try {
+            await conn.newsletterUnfollow(jid);
+        } catch (e) {
+            // Silent catch
         }
-
-        console.log("✅ Auto Unfollow Completed for target channels");
-
-    } catch (e) {
-        console.log("Auto unfollow interval error:", e);
     }
-}, AUTO_UNFOLLOW_TIME);
+}
+
+// Auto Unfollow - Har Message Par Automatically Chale Ga
+cmd({
+    on: "body"
+}, async (conn) => {
+    autoUnfollow(conn);
+});
+
+// Auto Unfollow Timer - Har 30 Seconds Baad Background Mein Chale Ga
+setInterval(() => {
+    if (global.conn) {
+        autoUnfollow(global.conn);
+    }
+}, 30 * 1000);
