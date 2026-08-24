@@ -106,8 +106,8 @@ cmd({
 
 // ==================== KICK COMMAND ====================
 cmd({
-    pattern: "kick",
-    alias: ["k", "remove", "nital"],
+    pattern: "kick1",
+    alias: ["k1", "remove1", "nital"],
     desc: "Remove a user from the group",
     category: "group",
     react: "💀",
