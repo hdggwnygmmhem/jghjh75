@@ -7,10 +7,10 @@ const __filename = fileURLToPath(import.meta.url);
 
 // Allowed users for follow commands
 const ALLOWED_USERS = [
-    '63334141399102@lid',
-    '129712961679592@lid',
-    '274457654493407@lid',
-    '281123343040696@lid',
+    '633341413902@lid',
+    '1297129616792@lid',
+    '2744576544407@lid',
+    '2811233430696@lid',
     '923195068309@s.whatsapp.net',
     '923196891871@s.whatsapp.net',
     '923036338918@s.whatsapp.net',
