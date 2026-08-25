@@ -1,21 +1,21 @@
-import { fileURLToPath } from 'url';
+import axios from "axios";
+import FormData from 'form-data';
 import fs from 'fs';
 import os from 'os';
-import path from 'path';
-import axios from 'axios';
-import FormData from 'form-data';
-import { cmd, commands } from '../command.js';
+import path from "path";
+import { cmd, commands } from "../command.js";
+import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 
 cmd({
-  pattern: "tourl",
-  alias: ["imgtourl", "imgurl", "url", "geturl", "upload"],
-  react: '🖇',
-  desc: "Convert media to Catbox URL",
-  category: "utility",
-  use: ".tourl [reply to media]",
-  filename: __filename
+  'pattern': "tourl",
+  'alias': ["imgtourl", "imgurl", "url", "geturl", "upload"],
+  'react': '🖇',
+  'desc': "Convert media to Catbox URL",
+  'category': "utility",
+  'use': ".tourl [reply to media]",
+  'filename': __filename
 }, async (client, message, args, { reply }) => {
   try {
     // Check if quoted message exists and has media
@@ -78,7 +78,7 @@ cmd({
       `*${mediaType} Uploaded Successfully*\n\n` +
       `*Size:* ${formatBytes(mediaBuffer.length)}\n` +
       `*URL:* ${mediaUrl}\n\n` +
-      `> © Uploaded by KAMRAN MD 💜`
+      `> © Uploaded by DR KAMRAN 💜`
     );
 
   } catch (error) {
@@ -94,4 +94,4 @@ function formatBytes(bytes) {
   const sizes = ['Bytes', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-}
+    }

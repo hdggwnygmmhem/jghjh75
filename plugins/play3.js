@@ -1,66 +1,56 @@
-import { fileURLToPath } from 'url';
-import yts from 'yt-search';
 import axios from 'axios';
-import { cmd } from '../command.js';
-
-const __filename = fileURLToPath(import.meta.url);
+import { cmd } from '../command.js'; // اپنے Baileys ہینڈلر کا صحیح پاتھ رکھیں
 
 cmd({
-    pattern: "play3",
-    alias: ["play4"],
-    desc: "Memutar musik dari YouTube",
-    category: "downloader",
-    filename: __filename
-}, async (conn, m, { text, example }) => {
-    
-    // Agar 'conn' undefined hai, toh 'm.client' ya 'm._client' use karein
-    const sock = conn || m.client || m._client;
-
-    if (!sock) {
-        console.log("Error: Socket/Client nahi mil raha.");
-        return;
-    }
-
-    // Manual reply function
-    const reply = async (teks) => {
-        return await sock.sendMessage(m.chat, { text: teks }, { quoted: m });
-    };
-
-    if (!text) return await reply('Contoh: .play dj tiktok viral');
-
-    await reply('⏳ Sedang mencari lagu...');
-
+    pattern: "play6",
+    alias: ["song6", "ytmp3play6"],
+    desc: "Search and play YouTube audio",
+    category: "download",
+    filename: import.meta.url
+},
+async (conn, mek, m, { q, reply, react }) => {
     try {
-        const search = await yts(text);
-        const video = search.videos[0];
+        if (!q) {
+            await react("❌");
+            return reply("⚠️ *براہ کرم گانے کا نام یا یوٹیوب لنک فراہم کریں!*\n\n*مثال:* `.play Alan Walker Faded`");
+        }
 
-        if (!video) return await reply('Lagu tidak ditemukan.');
+        await react("🔍");
 
-        const api = `https://api.mifinfinity.my.id/api/downloader/youtube?url=${encodeURIComponent(video.url)}&type=audio`;
-
-        const { data } = await axios.get(api);
-
-        if (!data.status || !data.result?.download) {
-            return await reply('Gagal mengambil audio.');
+        // API Call
+        const { data } = await axios.get(`https://api.ikyyxd.my.id/search/ytplayv2?q=${encodeURIComponent(q)}`);
+        
+        if (!data || !data.status || !data.result) {
+            await react("❌");
+            return reply("❌ *گانا نہیں مل سکا۔ براہ کرم نام تبدیل کر کے دوبارہ کوشش کریں۔*");
         }
 
         const res = data.result;
+        const minutes = Math.floor((res.duration || 0) / 60);
+        const seconds = ((res.duration || 0) % 60).toString().padStart(2, "0");
 
-        // Message bhejte waqt direct 'sock' use karein
-        await sock.sendMessage(m.chat, {
+        const caption = `🎵 *Title:* ${res.title}\n⏱️ *Duration:* ${minutes}:${seconds}\n🔗 *Source:* ${res.source}`;
+
+        // 1. Send Thumbnail with Caption
+        await conn.sendMessage(m.chat, {
             image: { url: res.thumbnail },
-            caption: `乂 *Y O U T U B E - P L A Y*\n\n◦ *Title* : ${res.title}\n◦ *Channel* : ${res.channel}\n◦ *Duration* : ${res.duration}\n\n> Powered by KAMRAN MD`
-        }, { quoted: m });
+            caption: caption
+        }, { quoted: mek });
 
-        await sock.sendMessage(m.chat, {
-            audio: { url: res.download },
-            mimetype: 'audio/mpeg',
-            fileName: `${res.title}.mp3`,
-            ptt: false
-        }, { quoted: m });
+        await react("📥");
 
-    } catch (e) {
-        console.error(e);
-        await reply('Terjadi kesalahan.');
+        // 2. Send Audio File
+        await conn.sendMessage(m.chat, {
+            audio: { url: res.audio.url },
+            mimetype: 'audio/mp4',
+            fileName: `${res.title}.mp3`
+        }, { quoted: mek });
+
+        await react("✅");
+
+    } catch (err) {
+        console.error("Play Command Error:", err);
+        await react("❌");
+        await reply("❌ *پروسیسنگ کے دوران ایرر آیا، بعد میں دوبارہ کوشش کریں۔*");
     }
 });
